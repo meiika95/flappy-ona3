@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Flappy Rindu - Terbang Sejauh Mungkin!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            font-family: 'Nunito', sans-serif;
+        }
+        .font-game {
+            font-family: 'Fredoka One', cursive;
+        }
+        /* Custom text stroke effect */
+        .text-stroke-sm {
+            -webkit-text-stroke: 1.5px #1e3a8a;
+        }
+        .text-stroke-md {
+            -webkit-text-stroke: 2.5px #0f172a;
+        }
+        .text-stroke-gold {
+            -webkit-text-stroke: 2px #78350f;
+        }
+        /* Smooth scale animation on button click */
+        .btn-bounce {
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        .btn-bounce:active {
+            transform: scale(0.92);
+        }
+        /* Phone screen frame shadow & inner glow */
+        .phone-frame {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4), 0 0 40px rgba(59, 130, 246, 0.3);
+            border: 8px solid #0f172a;
+        }
+        @media (max-width: 640px) {
+            .phone-frame {
+                border: none;
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 min-h-screen flex items-center justify-center p-0 sm:p-4 overflow-hidden">
+
+    <!-- Smartphone Frame Container -->
+    <div id="phone-container" class="relative w-full sm:w-[380px] h-screen sm:h-[720px] bg-slate-800 sm:rounded-[40px] overflow-hidden phone-frame flex flex-col justify-between">
+        
+        <!-- Mobile Phone Top Bar / Dynamic Island Simulation -->
+        <div class="absolute top-0 left-0 right-0 h-7 bg-transparent z-40 flex justify-between items-center px-6 pt-2 text-white text-xs font-bold pointer-events-none">
+            <span id="clock-time">09:41</span>
+            <div class="w-16 h-4 bg-black rounded-full flex items-center justify-center opacity-80 sm:opacity-100">
+                <div class="w-2 h-2 rounded-full bg-blue-900 mr-2"></div>
+            </div>
+            <div class="flex items-center gap-1.5 text-[10px]">
+                <i class="fa-solid fa-signal"></i>
+                <i class="fa-solid fa-wifi"></i>
+                <i class="fa-solid fa-battery-full"></i>
+            </div>
+        </div>
+
+        <!-- Canvas Game Screen -->
+        <canvas id="gameCanvas" class="w-full h-full block bg-sky-300"></canvas>
+
+        <!-- Overlay: Start Screen -->
+        <div id="start-screen" class="absolute inset-0 z-30 flex flex-col items-center justify-between p-6 pt-12 pb-8 bg-gradient-to-b from-sky-400/40 via-sky-300/10 to-emerald-500/30 backdrop-blur-[2px]">
+            <!-- Title Header -->
+            <div class="text-center mt-4">
+                <div class="inline-block bg-amber-400 text-amber-900 p-1 px-3 rounded-full text-xs font-black tracking-widest uppercase mb-1 shadow-md border-2 border-amber-200">
+                    <i class="fa-solid fa-crown mr-1"></i> Edisi Spesial
+                </div>
+                <h1 class="font-game text-4xl sm:text-5xl text-yellow-300 text-stroke-md drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)] tracking-wider">
+                    FLAPPY<br><span class="text-white text-stroke-md">RINDU</span>
+                </h1>
+                <p class="text-white text-sm font-extrabold drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] mt-1 tracking-wide">
+                    Terbang Sejauh Mungkin! ✨
+                </p>
+            </div>
+
+            <!-- Character Circle Preview & Upload -->
+            <div class="flex flex-col items-center my-auto">
+                <div class="relative group">
+                    <div class="w-28 h-28 rounded-full border-4 border-white shadow-2xl overflow-hidden bg-gradient-to-tr from-indigo-500 to-sky-300 flex items-center justify-center relative">
+                        <img id="char-preview" src="" alt="Karakter" class="w-full h-full object-cover hidden">
+                        <!-- Default Winged Angel Character Canvas Preview -->
+                        <canvas id="default-char-canvas" width="112" height="112" class="w-full h-full object-contain"></canvas>
+                    </div>
+                    <!-- Wing effects badge -->
+                    <div class="absolute -right-2 top-1/2 -translate-y-1/2 bg-yellow-400 text-yellow-950 p-2 rounded-full shadow-lg border-2 border-white animate-bounce">
+                        <i class="fa-solid fa-feather-pointed"></i>
+                    </div>
+                </div>
+
+                <!-- Custom Photo Upload Button -->
+                <label class="mt-3 cursor-pointer bg-slate-900/80 hover:bg-slate-900 text-white text-xs font-bold py-1.5 px-3.5 rounded-full border border-white/40 shadow-lg flex items-center gap-2 btn-bounce">
+                    <i class="fa-solid fa-camera text-yellow-300"></i>
+                    <span id="upload-label">Ganti Foto Karakter</span>
+                    <input type="file" id="imageUpload" accept="image/*" class="hidden">
+                </label>
+            </div>
+
+            <!-- Start Controls -->
+            <div class="w-full flex flex-col items-center gap-3">
+                <button id="btn-play" class="w-4/5 py-3.5 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-amber-950 font-game text-2xl rounded-2xl border-b-4 border-amber-700 shadow-xl flex items-center justify-center gap-2 text-stroke-gold btn-bounce">
+                    <i class="fa-solid fa-play text-2xl"></i> MAIN NOW
+                </button>
+
+                <div class="flex gap-3 w-4/5">
+                    <button id="btn-highscore" class="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs rounded-xl border-b-4 border-sky-800 shadow-md flex items-center justify-center gap-1.5 btn-bounce">
+                        <i class="fa-solid fa-trophy text-yellow-300"></i> HIGH SCORE
+                    </button>
+                    <button id="btn-audio" class="w-12 py-2.5 bg-slate-700 hover:bg-slate-600 text-white font-extrabold text-xs rounded-xl border-b-4 border-slate-900 shadow-md flex items-center justify-center btn-bounce">
+                        <i id="audio-icon" class="fa-solid fa-volume-high text-green-400"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overlay: Game Over Screen -->
+        <div id="gameover-screen" class="hidden absolute inset-0 z-30 flex flex-col items-center justify-center p-6 bg-slate-950/60 backdrop-blur-sm">
+            <div class="bg-amber-100 rounded-3xl border-4 border-amber-400 p-6 w-full max-w-[300px] shadow-2xl flex flex-col items-center text-center relative animate-fade-in">
+                
+                <!-- Floating Header Ribbon -->
+                <div class="absolute -top-6 bg-red-500 text-white font-game text-2xl px-6 py-1 rounded-2xl border-2 border-white shadow-lg text-stroke-sm">
+                    GAME OVER
+                </div>
+
+                <!-- Sad Character Avatar -->
+                <div class="w-20 h-20 rounded-full border-4 border-amber-300 shadow-md overflow-hidden bg-sky-200 mt-4 mb-3">
+                    <img id="gameover-avatar" src="" class="w-full h-full object-cover hidden">
+                    <canvas id="gameover-char-canvas" width="80" height="80" class="w-full h-full"></canvas>
+                </div>
+
+                <!-- Score Container -->
+                <div class="w-full bg-amber-50 rounded-2xl border-2 border-amber-200 p-3 my-2 shadow-inner">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-black text-amber-800">SKOR KAMU</span>
+                        <div class="flex items-center gap-1">
+                            <span id="final-score" class="font-game text-2xl text-amber-900">0</span>
+                            <span id="new-record-badge" class="hidden bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md animate-pulse">NEW!</span>
+                        </div>
+                    </div>
+                    <div class="h-0.5 bg-amber-200/60 w-full my-1"></div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-black text-amber-700">REKOR TERBAIK</span>
+                        <span id="final-best" class="font-game text-xl text-amber-800">0</span>
+                    </div>
+                </div>
+
+                <!-- Coins Collected Counter -->
+                <div class="flex items-center justify-center gap-2 my-2 text-amber-900 font-black text-sm bg-yellow-300/50 py-1.5 px-4 rounded-full border border-yellow-400">
+                    <i class="fa-solid fa-coins text-yellow-600 text-lg"></i>
+                    <span>+<span id="final-coins">0</span> Koin Didaftarkan</span>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="w-full flex flex-col gap-2 mt-3">
+                    <button id="btn-restart" class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-white font-game text-lg rounded-xl border-b-4 border-emerald-700 shadow-md flex items-center justify-center gap-2 btn-bounce">
+                        <i class="fa-solid fa-rotate-right"></i> MAIN LAGI
+                    </button>
+                    <button id="btn-menu" class="w-full py-2.5 bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs rounded-xl border-b-4 border-sky-700 shadow-md flex items-center justify-center gap-2 btn-bounce">
+                        <i class="fa-solid fa-house"></i> MENU UTAMA
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: High Score / Leaderboard -->
+        <div id="highscore-modal" class="hidden absolute inset-0 z-30 flex items-center justify-center p-6 bg-slate-950/70 backdrop-blur-sm">
+            <div class="bg-slate-800 rounded-3xl border-2 border-slate-600 p-5 w-full max-w-[320px] shadow-2xl flex flex-col items-center text-white relative">
+                
+                <h2 class="font-game text-2xl text-yellow-400 tracking-wider mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-crown text-amber-400"></i> HIGH SCORE
+                </h2>
+
+                <!-- Leaderboard List -->
+                <div class="w-full bg-slate-900/80 rounded-2xl p-3 border border-slate-700 mb-4 max-h-[220px] overflow-y-auto space-y-2">
+                    <div class="flex justify-between items-center bg-amber-500/20 border border-amber-500/40 p-2 rounded-xl">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-6 h-6 rounded-full bg-amber-400 text-amber-950 font-black text-xs flex items-center justify-center">1</span>
+                            <span class="font-bold text-xs text-amber-200" id="lb-name-1">Rindu (Kamu)</span>
+                        </div>
+                        <span class="font-game text-amber-300 text-sm" id="lb-score-1">0</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-800 p-2 rounded-xl text-slate-300">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-6 h-6 rounded-full bg-slate-700 font-bold text-xs flex items-center justify-center">2</span>
+                            <span class="font-bold text-xs">Pemain Hebat</span>
+                        </div>
+                        <span class="font-game text-sm">42</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-800 p-2 rounded-xl text-slate-300">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-6 h-6 rounded-full bg-slate-700 font-bold text-xs flex items-center justify-center">3</span>
+                            <span class="font-bold text-xs">Penjelajah Udara</span>
+                        </div>
+                        <span class="font-game text-sm">28</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-800 p-2 rounded-xl text-slate-300">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-6 h-6 rounded-full bg-slate-700 font-bold text-xs flex items-center justify-center">4</span>
+                            <span class="font-bold text-xs">Burung Terbang</span>
+                        </div>
+                        <span class="font-game text-sm">15</span>
+                    </div>
+                </div>
+
+                <!-- Personal Best Box -->
+                <div class="w-full bg-amber-400 text-amber-950 rounded-xl p-2.5 flex justify-between items-center font-bold text-xs mb-4">
+                    <span><i class="fa-solid fa-star mr-1"></i> Rekor Terbaikmu:</span>
+                    <span id="modal-best-score" class="font-game text-lg">0</span>
+                </div>
+
+                <button id="btn-close-modal" class="w-full py-2 bg-slate-700 hover:bg-slate-600 font-bold text-xs rounded-xl border-b-2 border-slate-900 btn-bounce">
+                    TUTUP
+                </button>
+            </div>
+        </div>
+
+        <!-- HUD Overlay (In Game) -->
+        <div id="hud-overlay" class="hidden absolute top-9 left-0 right-0 px-5 flex justify-between items-center pointer-events-none z-20">
+            <!-- Coin HUD -->
+            <div class="bg-slate-900/60 backdrop-blur-md text-amber-300 font-black text-xs px-3 py-1.5 rounded-full border border-white/20 flex items-center gap-1.5 shadow-lg">
+                <i class="fa-solid fa-coins text-yellow-400 text-sm"></i>
+                <span id="hud-coins" class="text-sm">0</span>
+            </div>
+            
+            <!-- Score HUD -->
+            <div class="bg-slate-900/60 backdrop-blur-md text-white font-game text-2xl px-4 py-1 rounded-2xl border border-white/20 shadow-lg min-w-[60px] text-center">
+                <span id="hud-score">0</span>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        /* --------------------------------------------------
+         * Web Audio Synthesizer (Zero External Dependencies)
+         * -------------------------------------------------- */
+        class AudioController {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+            }
+
+            playFlap() {
+                if (this.muted || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.12);
+            }
+
+            playCoin() {
+                if (this.muted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(987.77, now); // B5
+                osc.frequency.setValueAtTime(1318.51, now + 0.08); // E6
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+
+            playScore() {
+                if (this.muted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.06);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+
+            playHit() {
+                if (this.muted || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.3);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+        }
+
+        const soundManager = new AudioController();
+
+        /* --------------------------------------------------
+         * Game Engine Variables
+         * -------------------------------------------------- */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let gameState = 'START'; // START, PLAYING, GAMEOVER
+        let score = 0;
+        let coinsCollected = 0;
+        let totalCoins = parseInt(localStorage.getItem('flappy_rindu_coins') || '0');
+        let highScore = parseInt(localStorage.getItem('flappy_rindu_highscore') || '0');
+
+        // Character Specs
+        const bird = {
+            x: 70,
+            y: 250,
+            radius: 18,
+            velocity: 0,
+            gravity: 0.38,
+            jump: -6.8,
+            rotation: 0,
+            customImg: null
+        };
+
+        // Pipe Specs
+        const pipes = [];
+        const pipeWidth = 54;
+        const pipeGap = 130;
+        let pipeTimer = 0;
+        const pipeSpawnRate = 110; // Frames
+
+        // Floating Coins Specs
+        const coins = [];
+
+        // Parallax Background offsets
+        let bgOffsetClouds = 0;
+        let bgOffsetMountains = 0;
+        let bgOffsetHills = 0;
+
+        // Default Cute Winged Character Generator (Rendered on Canvas)
+        function renderDefaultAngelCharacter(targetCanvas, isSad = false) {
+            const cCtx = targetCanvas.getContext('2d');
+            const w = targetCanvas.width;
+            const h = targetCanvas.height;
+            cCtx.clearRect(0, 0, w, h);
+
+            const cx = w / 2;
+            const cy = h / 2;
+
+            // Wings
+            cCtx.fillStyle = '#ffffff';
+            cCtx.strokeStyle = '#cbd5e1';
+            cCtx.lineWidth = 2;
+            
+            // Left Wing
+            cCtx.beginPath();
+            cCtx.ellipse(cx - 22, cy + 2, 16, 10, -Math.PI / 6, 0, Math.PI * 2);
+            cCtx.fill();
+            cCtx.stroke();
+
+            // Head / Face
+            cCtx.fillStyle = '#fde047'; // Hair accent or head
+            cCtx.fillStyle = '#f87171';
+            cCtx.fillStyle = '#fed7aa'; // Skin
+            cCtx.beginPath();
+            cCtx.arc(cx, cy, 22, 0, Math.PI * 2);
+            cCtx.fill();
+            cCtx.lineWidth = 2.5;
+            cCtx.strokeStyle = '#78350f';
+            cCtx.stroke();
+
+            // Hair
+            cCtx.fillStyle = '#3f2314';
+            cCtx.beginPath();
+            cCtx.arc(cx, cy - 6, 22, Math.PI, Math.PI * 2);
+            cCtx.fill();
+
+            // Eyes
+            cCtx.fillStyle = '#1e293b';
+            if (!isSad) {
+                cCtx.beginPath();
+                cCtx.arc(cx - 7, cy + 1, 3.5, 0, Math.PI * 2);
+                cCtx.arc(cx + 7, cy + 1, 3.5, 0, Math.PI * 2);
+                cCtx.fill();
+                
+                // Eye shine
+                cCtx.fillStyle = '#ffffff';
+                cCtx.beginPath();
+                cCtx.arc(cx - 8, cy - 1, 1.2, 0, Math.PI * 2);
+                cCtx.arc(cx + 6, cy - 1, 1.2, 0, Math.PI * 2);
+                cCtx.fill();
+            } else {
+                // Sad eyes (x x or curved down)
+                cCtx.lineWidth = 2;
+                cCtx.strokeStyle = '#1e293b';
+                cCtx.beginPath();
+                cCtx.moveTo(cx - 10, cy + 3); cCtx.lineTo(cx - 4, cy - 1);
+                cCtx.moveTo(cx + 4, cy - 1); cCtx.lineTo(cx + 10, cy + 3);
+                cCtx.stroke();
+            }
+
+            // Cheeks
+            cCtx.fillStyle = '#f43f5e';
+            cCtx.globalAlpha = 0.4;
+            cCtx.beginPath();
+            cCtx.arc(cx - 11, cy + 8, 4, 0, Math.PI * 2);
+            cCtx.arc(cx + 11, cy + 8, 4, 0, Math.PI * 2);
+            cCtx.fill();
+            cCtx.globalAlpha = 1.0;
+
+            // Mouth
+            cCtx.strokeStyle = '#9a3412';
+            cCtx.lineWidth = 2;
+            cCtx.beginPath();
+            if (!isSad) {
+                cCtx.arc(cx, cy + 6, 5, 0.1 * Math.PI, 0.9 * Math.PI);
+            } else {
+                cCtx.arc(cx, cy + 12, 4, 1.1 * Math.PI, 1.9 * Math.PI);
+            }
+            cCtx.stroke();
+
+            // Cute Halo
+            cCtx.strokeStyle = '#f59e0b';
+            cCtx.lineWidth = 3;
+            cCtx.beginPath();
+            cCtx.ellipse(cx, cy - 25, 14, 4, 0, 0, Math.PI * 2);
+            cCtx.stroke();
+        }
+
+        function resizeCanvas() {
+            const container = document.getElementById('phone-container');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        // Handle Image Upload for Custom Character
+        document.getElementById('imageUpload').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    const img = new Image();
+                    img.onload = function () {
+                        bird.customImg = img;
+                        
+                        // Update avatars in menu & game over
+                        const charPreview = document.getElementById('char-preview');
+                        const defaultCanvas = document.getElementById('default-char-canvas');
+                        const goAvatar = document.getElementById('gameover-avatar');
+                        const goCanvas = document.getElementById('gameover-char-canvas');
+
+                        charPreview.src = event.target.result;
+                        charPreview.classList.remove('hidden');
+                        defaultCanvas.classList.add('hidden');
+
+                        goAvatar.src = event.target.result;
+                        goAvatar.classList.remove('hidden');
+                        goCanvas.classList.add('hidden');
+
+                        document.getElementById('upload-label').innerText = "Foto Berhasil!";
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function drawParallaxBackground() {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Sky Gradient
+            const skyGradient = ctx.createLinearGradient(0, 0, 0, h);
+            skyGradient.addColorStop(0, '#38bdf8');
+            skyGradient.addColorStop(0.6, '#bae6fd');
+            skyGradient.addColorStop(1, '#e0f2fe');
+            ctx.fillStyle = skyGradient;
+            ctx.fillRect(0, 0, w, h);
+
+            // Layer 1: Clouds (Slow)
+            if (gameState === 'PLAYING') bgOffsetClouds = (bgOffsetClouds + 0.3) % w;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            for (let i = -1; i < 2; i++) {
+                let x = i * w - bgOffsetClouds;
+                ctx.beginPath();
+                ctx.arc(x + 60, 90, 25, 0, Math.PI * 2);
+                ctx.arc(x + 90, 80, 35, 0, Math.PI * 2);
+                ctx.arc(x + 130, 90, 25, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(x + 260, 130, 20, 0, Math.PI * 2);
+                ctx.arc(x + 285, 120, 30, 0, Math.PI * 2);
+                ctx.arc(x + 315, 130, 22, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Layer 2: Distant Mountains (Medium)
+            if (gameState === 'PLAYING') bgOffsetMountains = (bgOffsetMountains + 0.6) % w;
+            ctx.fillStyle = '#93c5fd';
+            for (let i = -1; i < 2; i++) {
+                let x = i * w - bgOffsetMountains;
+                ctx.beginPath();
+                ctx.moveTo(x + 0, h - 100);
+                ctx.lineTo(x + 90, h - 220);
+                ctx.lineTo(x + 180, h - 100);
+                ctx.lineTo(x + 270, h - 250);
+                ctx.lineTo(x + 380, h - 100);
+                ctx.fill();
+            }
+
+            // Layer 3: Green Hills & City/Temple Silhouette (Faster)
+            if (gameState === 'PLAYING') bgOffsetHills = (bgOffsetHills + 1.2) % w;
+            ctx.fillStyle = '#34d399';
+            for (let i = -1; i < 2; i++) {
+                let x = i * w - bgOffsetHills;
+                ctx.beginPath();
+                ctx.arc(x + 80, h - 60, 100, Math.PI, 0);
+                ctx.arc(x + 260, h - 60, 120, Math.PI, 0);
+                ctx.fill();
+            }
+
+            // Ground Floor
+            ctx.fillStyle = '#10b981';
+            ctx.fillRect(0, h - 60, w, 60);
+
+            // Ground Top Border Grass
+            ctx.fillStyle = '#059669';
+            ctx.fillRect(0, h - 60, w, 8);
+        }
+
+        function spawnPipe() {
+            const h = canvas.height;
+            const minHeight = 60;
+            const maxHeight = h - pipeGap - 140;
+            const topHeight = Math.floor(Math.random() * (maxHeight - minHeight + 1)) + minHeight;
+
+            const pipeX = canvas.width;
+            pipes.push({
+                x: pipeX,
+                top: topHeight,
+                bottom: h - topHeight - pipeGap - 60,
+                passed: false
+            });
+
+            // 70% chance to spawn a coin in between the gap
+            if (Math.random() < 0.7) {
+                coins.push({
+                    x: pipeX + pipeWidth / 2,
+                    y: topHeight + pipeGap / 2,
+                    collected: false,
+                    animOffset: Math.random() * Math.PI * 2
+                });
+            }
+        }
+
+        function drawPipes() {
+            pipes.forEach(pipe => {
+                // Pipe Styling Gradient (Green Standard)
+                const grad = ctx.createLinearGradient(pipe.x, 0, pipe.x + pipeWidth, 0);
+                grad.addColorStop(0, '#22c55e');
+                grad.addColorStop(0.5, '#86efac');
+                grad.addColorStop(1, '#15803d');
+
+                ctx.fillStyle = grad;
+                ctx.strokeStyle = '#14532d';
+                ctx.lineWidth = 2.5;
+
+                // Top Pipe
+                ctx.fillRect(pipe.x, 0, pipeWidth, pipe.top);
+                ctx.strokeRect(pipe.x, 0, pipeWidth, pipe.top);
+
+                // Top Pipe Cap
+                ctx.fillRect(pipe.x - 4, pipe.top - 20, pipeWidth + 8, 20);
+                ctx.strokeRect(pipe.x - 4, pipe.top - 20, pipeWidth + 8, 20);
+
+                // Bottom Pipe
+                const bottomY = canvas.height - 60 - pipe.bottom;
+                ctx.fillRect(pipe.x, bottomY, pipeWidth, pipe.bottom);
+                ctx.strokeRect(pipe.x, bottomY, pipeWidth, pipe.bottom);
+
+                // Bottom Pipe Cap
+                ctx.fillRect(pipe.x - 4, bottomY, pipeWidth + 8, 20);
+                ctx.strokeRect(pipe.x - 4, bottomY, pipeWidth + 8, 20);
+            });
+        }
+
+        function drawCoins() {
+            const time = Date.now() * 0.005;
+            coins.forEach(coin => {
+                if (coin.collected) return;
+
+                const floatY = coin.y + Math.sin(time + coin.animOffset) * 5;
+
+                ctx.save();
+                ctx.translate(coin.x, floatY);
+
+                // Outer Gold Glow
+                ctx.fillStyle = '#fde047';
+                ctx.beginPath();
+                ctx.arc(0, 0, 11, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Inner Coin Body
+                ctx.fillStyle = '#eab308';
+                ctx.beginPath();
+                ctx.arc(0, 0, 9, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Star detail
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '10px fontawesome, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('★', 0, 0);
+
+                ctx.restore();
+            });
+        }
+
+        function drawBird() {
+            ctx.save();
+            ctx.translate(bird.x, bird.y);
+
+            // Rotate based on velocity
+            bird.rotation = Math.min(Math.PI / 4, Math.max(-Math.PI / 5, bird.velocity * 0.08));
+            ctx.rotate(bird.rotation);
+
+            if (bird.customImg) {
+                // Render Uploaded Custom Photo
+                ctx.beginPath();
+                ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
+                ctx.clip();
+                ctx.drawImage(bird.customImg, -bird.radius, -bird.radius, bird.radius * 2, bird.radius * 2);
+                ctx.restore();
+
+                // Draw Wings overlay over photo
+                ctx.save();
+                ctx.translate(bird.x, bird.y);
+                ctx.rotate(bird.rotation);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.strokeStyle = '#64748b';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.ellipse(-bird.radius + 2, 2, 12, 7, -Math.PI / 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            } else {
+                // Render Built-in Vector Angel Bird
+                ctx.restore(); // Reset translate for helper canvas drawing
+                ctx.save();
+                ctx.translate(bird.x, bird.y);
+                ctx.rotate(bird.rotation);
+
+                // Draw Wing
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.ellipse(-12, 2, 10, 6, -Math.PI / 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Body / Face
+                ctx.fillStyle = '#fed7aa';
+                ctx.beginPath();
+                ctx.arc(0, 0, bird.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#78350f';
+                ctx.stroke();
+
+                // Hair
+                ctx.fillStyle = '#3f2314';
+                ctx.beginPath();
+                ctx.arc(0, -4, bird.radius, Math.PI, Math.PI * 2);
+                ctx.fill();
+
+                // Eye
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.arc(5, -2, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Cheeks
+                ctx.fillStyle = '#f43f5e';
+                ctx.globalAlpha = 0.5;
+                ctx.beginPath();
+                ctx.arc(3, 4, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+
+                // Crown / Halo
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.ellipse(0, -bird.radius - 3, 10, 3, 0, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+        }
+
+        function updatePhysics() {
+            if (gameState !== 'PLAYING') return;
+
+            // Bird Gravity
+            bird.velocity += bird.gravity;
+            bird.y += bird.velocity;
+
+            // Ground & Ceiling Collision Check
+            if (bird.y + bird.radius >= canvas.height - 60) {
+                bird.y = canvas.height - 60 - bird.radius;
+                gameOver();
+            }
+            if (bird.y - bird.radius <= 0) {
+                bird.y = bird.radius;
+                bird.velocity = 0;
+            }
+
+            // Pipe Logic
+            pipeTimer++;
+            if (pipeTimer >= pipeSpawnRate) {
+                spawnPipe();
+                pipeTimer = 0;
+            }
+
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                const pipe = pipes[i];
+                pipe.x -= 2.2; // Move speed
+
+                // Score check when passing pipe
+                if (!pipe.passed && pipe.x + pipeWidth < bird.x) {
+                    pipe.passed = true;
+                    score++;
+                    soundManager.playScore();
+                    document.getElementById('hud-score').innerText = score;
+                }
+
+                // Collision Detection with Pipes
+                const birdLeft = bird.x - bird.radius + 4;
+                const birdRight = bird.x + bird.radius - 4;
+                const birdTop = bird.y - bird.radius + 4;
+                const birdBottom = bird.y + bird.radius - 4;
+
+                const bottomPipeY = canvas.height - 60 - pipe.bottom;
+
+                if (birdRight > pipe.x && birdLeft < pipe.x + pipeWidth) {
+                    if (birdTop < pipe.top || birdBottom > bottomPipeY) {
+                        gameOver();
+                    }
+                }
+
+                // Remove offscreen pipes
+                if (pipe.x + pipeWidth < -20) {
+                    pipes.splice(i, 1);
+                }
+            }
+
+            // Coin Logic
+            for (let i = coins.length - 1; i >= 0; i--) {
+                const coin = coins[i];
+                coin.x -= 2.2;
+
+                if (!coin.collected) {
+                    // Distance check for coin collection
+                    const dist = Math.hypot(bird.x - coin.x, bird.y - coin.y);
+                    if (dist < bird.radius + 12) {
+                        coin.collected = true;
+                        coinsCollected++;
+                        totalCoins++;
+                        localStorage.setItem('flappy_rindu_coins', totalCoins.toString());
+                        soundManager.playCoin();
+                        document.getElementById('hud-coins').innerText = coinsCollected;
+                    }
+                }
+
+                if (coin.x < -20) {
+                    coins.splice(i, 1);
+                }
+            }
+        }
+
+        function triggerFlap() {
+            soundManager.init();
+            if (gameState === 'PLAYING') {
+                bird.velocity = bird.jump;
+                soundManager.playFlap();
+            }
+        }
+
+        function startGame() {
+            soundManager.init();
+            gameState = 'PLAYING';
+            score = 0;
+            coinsCollected = 0;
+            bird.y = canvas.height / 2;
+            bird.velocity = 0;
+            pipes.length = 0;
+            coins.length = 0;
+            pipeTimer = 0;
+
+            document.getElementById('hud-score').innerText = '0';
+            document.getElementById('hud-coins').innerText = '0';
+
+            // Show/Hide Overlays
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('gameover-screen').classList.add('hidden');
+            document.getElementById('hud-overlay').classList.remove('hidden');
+        }
+
+        function gameOver() {
+            if (gameState === 'GAMEOVER') return;
+            gameState = 'GAMEOVER';
+            soundManager.playHit();
+
+            // Save High Score
+            let isNewRecord = false;
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('flappy_rindu_highscore', highScore.toString());
+                isNewRecord = true;
+            }
+
+            // Update Game Over UI
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('final-best').innerText = highScore;
+            document.getElementById('final-coins').innerText = coinsCollected;
+
+            const badge = document.getElementById('new-record-badge');
+            if (isNewRecord) {
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+
+            document.getElementById('hud-overlay').classList.add('hidden');
+            document.getElementById('gameover-screen').classList.remove('hidden');
+        }
+
+        function showMenu() {
+            gameState = 'START';
+            document.getElementById('gameover-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+            document.getElementById('hud-overlay').classList.add('hidden');
+        }
+
+        function updateLeaderboardModal() {
+            document.getElementById('modal-best-score').innerText = highScore;
+            document.getElementById('lb-score-1').innerText = highScore;
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawParallaxBackground();
+
+            if (gameState === 'PLAYING') {
+                updatePhysics();
+                drawPipes();
+                drawCoins();
+                drawBird();
+            } else if (gameState === 'START') {
+                // Animate bird bobbing in start menu
+                bird.y = canvas.height / 2 + Math.sin(Date.now() * 0.004) * 10;
+                drawBird();
+            } else if (gameState === 'GAMEOVER') {
+                drawPipes();
+                drawCoins();
+                drawBird();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initialize UI Elements & Event Listeners
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // Render Default Vector Avatars into Canvas Elements
+            renderDefaultAngelCharacter(document.getElementById('default-char-canvas'), false);
+            renderDefaultAngelCharacter(document.getElementById('gameover-char-canvas'), true);
+
+            // Clock update
+            const updateClock = () => {
+                const d = new Date();
+                const h = String(d.getHours()).padStart(2, '0');
+                const m = String(d.getMinutes()).padStart(2, '0');
+                document.getElementById('clock-time').innerText = `${h}:${m}`;
+            };
+            updateClock();
+            setInterval(updateClock, 30000);
+
+            // Controls & Tap Listeners
+            canvas.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                triggerFlap();
+            });
+
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'Space' || e.code === 'ArrowUp') {
+                    e.preventDefault();
+                    if (gameState === 'PLAYING') {
+                        triggerFlap();
+                    } else if (gameState === 'START') {
+                        startGame();
+                    }
+                }
+            });
+
+            // Buttons Actions
+            document.getElementById('btn-play').addEventListener('click', startGame);
+            document.getElementById('btn-restart').addEventListener('click', startGame);
+            document.getElementById('btn-menu').addEventListener('click', showMenu);
+
+            document.getElementById('btn-highscore').addEventListener('click', () => {
+                updateLeaderboardModal();
+                document.getElementById('highscore-modal').classList.remove('hidden');
+            });
+
+            document.getElementById('btn-close-modal').addEventListener('click', () => {
+                document.getElementById('highscore-modal').classList.add('hidden');
+            });
+
+            // Mute / Unmute Audio Toggle
+            const btnAudio = document.getElementById('btn-audio');
+            const audioIcon = document.getElementById('audio-icon');
+            btnAudio.addEventListener('click', () => {
+                soundManager.muted = !soundManager.muted;
+                if (soundManager.muted) {
+                    audioIcon.className = "fa-solid fa-volume-xmark text-red-400";
+                } else {
+                    audioIcon.className = "fa-solid fa-volume-high text-green-400";
+                }
+            });
+
+            // Start Main Game Loop
+            gameLoop();
+        });
+    </script>
+</body>
+</html>
